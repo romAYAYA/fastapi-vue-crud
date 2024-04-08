@@ -9,7 +9,6 @@ async def db_query_tool(query, method, *args):
     if method == 'get':
         res = await connection.fetch(query)
     else:
-        print('\n\n\n\n\n\n\n\n', *args)
         await connection.execute(query, *args)
     await connection.close()
     return res
