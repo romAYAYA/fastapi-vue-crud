@@ -1,16 +1,13 @@
-import asyncio
-import aioredis
-import asyncpg
-from fastapi import FastAPI, HTTPException
-from database import queries
-from database.queries import connect_to_database
-from utils import db_query_tool, make_exceptions
+import random
+
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from database import queries
+from utils import db_query_tool, make_exceptions
+import redis
+
 # TODO
-
-
-# 7. aioredis
 
 # 1. переписать на sanic
 # 2. переписать на django
@@ -21,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 # 4. Union, -, + PLUS MINUS DONE
 # 5. Модальные окна, лодеры DONE
 # 6. Разница join'ов DONE
+# 7. aioredis DONE
 
 
 # TODO LEFT JOIN к каждому значению левой таблицы приклеивает значение правой таблицы. Если значения в правой таблице нет, то оставляет null
@@ -92,6 +90,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+redis = redis.Redis(host='localhost', port=6379, db=0)
+
 origins = [
     "http://localhost",
     "http://localhost:5173",
@@ -119,7 +119,6 @@ async def shutdown():
 @make_exceptions
 @app.post('/api/users/')
 async def create_user(person: dict):
-    await asyncio.sleep(1)
     await db_query_tool('SELECT create_user($1)', 'post', person)
     return {"message": "ok"}
 
@@ -127,7 +126,6 @@ async def create_user(person: dict):
 @make_exceptions
 @app.get('/api/users/')
 async def get_users():
-    await asyncio.sleep(1)
     users = await db_query_tool('''
     SELECT pl.id, pl.firstname, pl.fullname, pl.age FROM people as pl
     ORDER BY pl.firstname    
@@ -138,7 +136,6 @@ async def get_users():
 @make_exceptions
 @app.put('/api/users/{user_id}')
 async def update_user(person: dict, user_id: int):
-    await asyncio.sleep(1)
     await db_query_tool(
         'SELECT update_user($1, $2, $3, $4)', 'update',
         *[x for x in person.values()], user_id)
@@ -149,7 +146,6 @@ async def update_user(person: dict, user_id: int):
 @make_exceptions
 @app.delete('/api/users/{user_id}')
 async def delete_user(user_id: int):
-    await asyncio.sleep(1)
     await db_query_tool('CALL delete_user_by_id($1)', 'delete', user_id)
     return {"message": f"User with ID {user_id} deleted successfully"}
 
@@ -165,24 +161,9 @@ async def get_dates():
 
 @make_exceptions
 @app.get('/api/cache')
-async def get_cache():
-    redis = aioredis.from_url("redis://localhost")
-    if redis.exists("my-key"):
-        return {'message': 'Cache exists'}
-
-    await redis.set("my-key", "value")
-    value = await redis.get("my-key")
-    return {'data': value}
-
-
-
-
-
-
-
-
-
-
-
-
-
+def get_cache():
+    value = redis.get("my-key")
+    if value is None:
+        value = random.randint(1, 99999999999)
+        redis.setex("my-key", 5, int(value))
+    return {'data': int(value)}
